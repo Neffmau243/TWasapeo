@@ -1,0 +1,300 @@
+// ============================================
+// SCHEMA DE BASE DE DATOS - PRISMA
+// ============================================
+// Este archivo define toda la estructura de la base de datos
+// Modelos: User, Business, Category, Review, Image, Event, FAQ, etc.
+// Después de modificar, ejecutar: npm run prisma:generate
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS
+// ============================================
+// Modelo para todos los usuarios del sistema
+// Roles: USER (usuario básico), OWNER (dueño de negocio), ADMIN (administrador)
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String   // Hash con bcrypt
+  name          String
+  phone         String?
+  avatar        String?
+  role          Role     @default(USER)
+  isVerified    Boolean  @default(false)
+  
+  // Tokens de verificación y reset
+  verificationToken  String?
+  resetToken         String?
+  resetTokenExpires  DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  businesses    Business[]
+  reviews       Review[]
+  favorites     Favorite[]
+  following     Following[]
+  
+  @@map("users")
+}
+
+enum Role {
+  USER
+  OWNER
+  ADMIN
+}
+
+// ============================================
+// NEGOCIOS
+// ============================================
+// Modelo principal de negocios locales
+// Estados: PENDING (pendiente), APPROVED (aprobado), REJECTED (rechazado), INACTIVE (inactivo)
+
+model Business {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  description   String
+  categoryId    String
+  
+  // Ubicación
+  address       String
+  city          String
+  state         String
+  zipCode       String?
+  latitude      Float
+  longitude     Float
+  
+  // Contacto
+  phone         String
+  email         String?
+  website       String?
+  whatsapp      String?
+  facebook      String?
+  instagram     String?
+  
+  // Horarios (JSON: {monday: {open: "09:00", close: "18:00"}, ...})
+  schedule      Json
+  
+  // Imágenes
+  logo          String?
+  coverImage    String?
+  
+  // Estado
+  status        BusinessStatus @default(PENDING)
+  isVerified    Boolean  @default(false)
+  isPremium     Boolean  @default(false)
+  
+  // Estadísticas
+  viewCount     Int      @default(0)
+  favoriteCount Int      @default(0)
+  reviewCount   Int      @default(0)
+  averageRating Float    @default(0)
+  
+  // Metadata
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  ownerId       String
+  
+  // Relaciones
+  owner         User      @relation(fields: [ownerId], references: [id])
+  category      Category  @relation(fields: [categoryId], references: [id])
+  images        Image[]
+  reviews       Review[]
+  events        Event[]
+  faqs          FAQ[]
+  favorites     Favorite[]
+  following     Following[]
+  
+  @@map("businesses")
+}
+
+enum BusinessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  INACTIVE
+}
+
+// ============================================
+// CATEGORÍAS
+// ============================================
+// Categorías de negocios (Restaurantes, Cafeterías, Tiendas, etc.)
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  order       Int      @default(0)
+  
+  // Relaciones
+  businesses  Business[]
+  
+  @@map("categories")
+}
+
+// ============================================
+// IMÁGENES
+// ============================================
+// Galería de imágenes de cada negocio
+// Se almacenan en Cloudinary
+
+model Image {
+  id          String   @id @default(uuid())
+  url         String
+  publicId    String   // Cloudinary public_id para eliminar
+  order       Int      @default(0)
+  businessId  String
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("images")
+}
+
+// ============================================
+// RESEÑAS
+// ============================================
+// Reseñas de usuarios sobre negocios
+// Rating: 1-5 estrellas
+// Un usuario solo puede dejar una reseña por negocio
+
+model Review {
+  id          String   @id @default(uuid())
+  rating      Int      // 1-5
+  comment     String
+  
+  // Reacciones (útil/no útil)
+  helpfulCount Int     @default(0)
+  
+  // Estado
+  isEdited    Boolean  @default(false)
+  
+  // Respuesta del owner
+  ownerReply  String?
+  ownerReplyDate DateTime?
+  
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  businessId  String
+  
+  // Relaciones
+  user        User     @relation(fields: [userId], references: [id])
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reactions   ReviewReaction[]
+  
+  @@map("reviews")
+  @@unique([userId, businessId]) // Un usuario = una reseña por negocio
+}
+
+// ============================================
+// REACCIONES A RESEÑAS
+// ============================================
+// Usuarios pueden marcar reseñas como útiles o no útiles
+
+model ReviewReaction {
+  id          String   @id @default(uuid())
+  isHelpful   Boolean  // true = útil, false = no útil
+  userId      String
+  reviewId    String
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  @@map("review_reactions")
+  @@unique([userId, reviewId])
+}
+
+// ============================================
+// EVENTOS
+// ============================================
+// Eventos, promociones y actualizaciones de negocios
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  startDate   DateTime
+  endDate     DateTime?
+  imageUrl    String?
+  businessId  String
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("events")
+}
+
+// ============================================
+// FAQ (Preguntas Frecuentes)
+// ============================================
+// Preguntas y respuestas sobre el negocio
+
+model FAQ {
+  id          String   @id @default(uuid())
+  question    String
+  answer      String
+  order       Int      @default(0)
+  businessId  String
+  
+  // Relaciones
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("faqs")
+}
+
+// ============================================
+// FAVORITOS
+// ============================================
+// Negocios favoritos de cada usuario
+
+model Favorite {
+  id          String   @id @default(uuid())
+  userId      String
+  businessId  String
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  user        User     @relation(fields: [userId], references: [id])
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("favorites")
+  @@unique([userId, businessId])
+}
+
+// ============================================
+// SEGUIR NEGOCIO
+// ============================================
+// Usuarios pueden seguir negocios para recibir actualizaciones
+
+model Following {
+  id          String   @id @default(uuid())
+  userId      String
+  businessId  String
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  user        User     @relation(fields: [userId], references: [id])
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("following")
+  @@unique([userId, businessId])
+}
