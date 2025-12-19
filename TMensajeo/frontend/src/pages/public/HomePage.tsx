@@ -17,14 +17,16 @@ const HomePage: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // Cargar negocios destacados
       const featured = await businessService.getAllBusinesses({ featured: true, limit: 4 });
-      setFeaturedBusinesses(featured.data || []);
-      
+      console.log('✅ Featured response:', featured);
+      setFeaturedBusinesses(featured.data.businesses || []);
+
       // Cargar negocios recientes
       const recent = await businessService.getAllBusinesses({ limit: 8 });
-      setBusinesses(recent.data || []);
+      console.log('✅ Recent response:', recent);
+      setBusinesses(recent.data.businesses || []);
     } catch (error) {
       console.error('Error loading businesses:', error);
     } finally {
@@ -47,7 +49,7 @@ const HomePage: React.FC = () => {
           <p className="text-xl text-center mb-8 text-blue-100">
             Encuentra y reseña establecimientos cerca de ti
           </p>
-          
+
           <div className="max-w-2xl mx-auto">
             <SearchBar onSearch={handleSearch} />
           </div>
@@ -60,7 +62,7 @@ const HomePage: React.FC = () => {
           <h2 className="text-3xl font-bold text-gray-900 mb-6">
             ⭐ Negocios Destacados
           </h2>
-          
+
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[1, 2, 3, 4].map((i) => (
@@ -88,7 +90,7 @@ const HomePage: React.FC = () => {
         <h2 className="text-3xl font-bold text-gray-900 mb-6">
           Negocios Recientes
         </h2>
-        
+
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (

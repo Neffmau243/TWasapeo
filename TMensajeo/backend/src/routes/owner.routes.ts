@@ -9,6 +9,7 @@ import { authenticateToken, authorizeRoles } from '../middleware/auth';
 import {
   getMyBusinesses,
   getBusinessStats,
+  getOwnerStats,
 } from '../controllers/ownerController';
 
 const router = Router();
@@ -17,6 +18,7 @@ const router = Router();
 router.use(authenticateToken);
 router.use(authorizeRoles('OWNER', 'ADMIN'));
 
+router.get('/stats', getOwnerStats);
 router.get('/businesses', getMyBusinesses);
 router.get('/businesses/:businessId/stats', getBusinessStats);
 

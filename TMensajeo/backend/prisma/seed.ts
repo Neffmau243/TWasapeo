@@ -22,7 +22,7 @@ async function main() {
   // CREAR USUARIO ADMINISTRADOR
   // ============================================
   const adminPassword = await bcrypt.hash('admin123', 10);
-  
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@locales.com' },
     update: {},
@@ -36,6 +36,25 @@ async function main() {
   });
 
   console.log('✅ Admin creado:', admin.email);
+
+  // ============================================
+  // CREAR USUARIO OWNER (DUEÑO)
+  // ============================================
+  const ownerPassword = await bcrypt.hash('owner123', 10);
+
+  const owner = await prisma.user.upsert({
+    where: { email: 'owner@locales.com' },
+    update: {},
+    create: {
+      email: 'owner@locales.com',
+      password: ownerPassword,
+      name: 'Dueño de Negocio',
+      role: 'OWNER',
+      isVerified: true,
+    },
+  });
+
+  console.log('✅ Owner creado:', owner.email);
 
   // ============================================
   // CREAR CATEGORÍAS

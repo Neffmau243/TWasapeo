@@ -21,14 +21,32 @@ const BusinessDetailPage: React.FC = () => {
   const loadBusiness = async () => {
     try {
       setLoading(true);
-      const data = await businessService.getBusinessBySlug(slug!);
-      setBusiness(data);
-      
-      // Cargar reseñas
-      const reviewsData = await businessService.getBusinessReviews(data.id);
-      setReviews(reviewsData.data || []);
+      setError('');
+
+      // Cargar negocio
+      const response = await businessService.getBusinessBySlug(slug!);
+      console.log('✅ Business detail response:', response);
+
+      if (!response.data) {
+        throw new Error('No se encontró el negocio');
+      }
+
+      setBusiness(response.data);
+
+      // Cargar reseñas (no bloquear si falla)
+      try {
+        const reviewsData = await businessService.getBusinessReviews(response.data.id);
+        console.log('✅ Reviews response:', reviewsData);
+        setReviews(reviewsData.data?.reviews || reviewsData.data || []);
+      } catch (reviewErr: any) {
+        console.warn('⚠️ No se pudieron cargar las reseñas:', reviewErr.response?.status);
+        // No mostrar error, solo dejar reviews vacío
+        setReviews([]);
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Error al cargar el negocio');
+      console.error('❌ Error loading business:', err);
+      setError(err?.response?.data?.message || err.message || 'Error al cargar el negocio');
+      setBusiness(null);
     } finally {
       setLoading(false);
     }
@@ -142,7 +160,7 @@ const BusinessDetailPage: React.FC = () => {
                   </Link>
                 )}
               </div>
-              
+
               {reviews.length > 0 ? (
                 <ReviewList reviews={reviews} />
               ) : (
@@ -160,7 +178,7 @@ const BusinessDetailPage: React.FC = () => {
               <h3 className="text-xl font-bold text-gray-900 mb-4">
                 Información de contacto
               </h3>
-              
+
               {business.address && (
                 <div className="mb-4">
                   <p className="text-gray-600 text-sm mb-1">Dirección</p>

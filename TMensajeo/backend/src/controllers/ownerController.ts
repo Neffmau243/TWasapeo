@@ -155,3 +155,49 @@ export const getBusinessStats = async (req: Request, res: Response) => {
     return errorResponse(res, 'Error al obtener estadísticas', 500);
   }
 };
+
+export const getOwnerStats = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return errorResponse(res, 'Usuario no autenticado', 401);
+    }
+
+    // Obtener todos los negocios del owner
+    const businesses = await prisma.business.findMany({
+      where: { ownerId: userId },
+      select: {
+        id: true,
+        averageRating: true,
+        viewCount: true,
+        _count: {
+          select: {
+            reviews: true,
+          }
+        }
+      }
+    });
+
+    // Calcular totales
+    const totalBusinesses = businesses.length;
+    const totalReviews = businesses.reduce((acc, curr) => acc + curr._count.reviews, 0);
+    const totalViews = businesses.reduce((acc, curr) => acc + curr.viewCount, 0);
+
+    // Calcular promedio general
+    const totalRatingSum = businesses.reduce((acc, curr) => acc + (curr.averageRating || 0), 0);
+    const averageRating = totalBusinesses > 0 ? (totalRatingSum / totalBusinesses) : 0;
+
+    const stats = {
+      totalBusinesses,
+      totalReviews,
+      totalViews,
+      averageRating: parseFloat(averageRating.toFixed(1))
+    };
+
+    return successResponse(res, stats);
+  } catch (error) {
+    console.error('Error en getOwnerStats:', error);
+    return errorResponse(res, 'Error al obtener estadísticas generales', 500);
+  }
+};

@@ -22,11 +22,21 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
     // Verificar token
     const decoded = jwt.verify(token, jwtConfig.secret) as any;
 
+    console.log('🔑 Token decoded:', decoded);
+
     // Attachear usuario a la request
-    req.user = decoded;
+    // El token tiene userId, pero los controladores esperan id
+    req.user = {
+      id: decoded.userId,  // Mapear userId -> id
+      role: decoded.role,
+      ...decoded
+    };
+
+    console.log('👤 req.user:', req.user);
 
     next();
   } catch (error) {
+    console.error('❌ Auth error:', error);
     res.status(401).json({ message: 'No autorizado - Token inválido' });
   }
 };

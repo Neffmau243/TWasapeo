@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 250 249 246;
+    --foreground: 28 25 23;
+    --card: 255 254 252;
+    --card-foreground: 28 25 23;
+    --border: 231 229 228;
+    --muted: 245 243 240;
+    --muted-foreground: 120 113 108;
+    --accent: 245 243 240;
+    --accent-foreground: 28 25 23;
+  }
+
+  .dark {
+    --background: 12 10 9;
+    --foreground: 250 249 246;
+    --card: 23 23 23;
+    --card-foreground: 250 249 246;
+    --border: 38 38 38;
+    --muted: 28 25 23;
+    --muted-foreground: 168 162 158;
+    --accent: 38 38 38;
+    --accent-foreground: 250 249 246;
+  }
+
+  * {
+    @apply border-[rgb(var(--border))];
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    @apply bg-[rgb(var(--background))] text-[rgb(var(--foreground))];
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', 'Georgia', serif;
+  }
+
+  /* Hero Carousel Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(2rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes progress {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  .animate-fadeInUp {
+    animation: fadeInUp 0.8s ease-out forwards;
+  }
+
+  .animate-progress {
+    animation: progress linear forwards;
+  }
+
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+}

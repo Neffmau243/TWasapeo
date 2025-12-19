@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response) => {
       where: { id: user.id },
       data: { verificationToken },
     });
-    
+
     // Enviar email de bienvenida con link de verificación
     await sendEmail(
       user.email,
@@ -102,19 +102,27 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
+    console.log('🔍 Login attempt:', { email, passwordLength: password ? password.length : 0 });
+
     // Buscar usuario por email
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
     if (!user) {
+      console.warn('⚠️ Login failed: User not found for email:', email);
       return errorResponse(res, 'Credenciales inválidas', 401);
     }
+
+    console.log('✅ User found:', { id: user.id, email: user.email, storedPasswordHash: user.password.substring(0, 20) + '...' });
 
     // Verificar contraseña
     const isPasswordValid = await comparePassword(password, user.password);
 
+    console.log('🔐 Password validation result:', isPasswordValid);
+
     if (!isPasswordValid) {
+      console.warn('⚠️ Login failed: Invalid password for user:', email);
       return errorResponse(res, 'Credenciales inválidas', 401);
     }
 
