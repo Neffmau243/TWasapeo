@@ -389,3 +389,74 @@ export const deleteReview = async (req: Request, res: Response) => {
     return errorResponse(res, 'Error al eliminar reseña', 500);
   }
 };
+
+/**
+ * @desc    Obtener todas las reseñas (para moderación)
+ * @route   GET /api/admin/reviews
+ * @access  Private (Admin)
+ */
+export const getAllReviews = async (req: Request, res: Response) => {
+  try {
+    const { page = '1', limit = '20', businessId, userId, minRating, maxRating } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (businessId) {
+      where.businessId = businessId as string;
+    }
+    if (userId) {
+      where.userId = userId as string;
+    }
+    if (minRating) {
+      where.rating = { ...where.rating, gte: parseInt(minRating as string) };
+    }
+    if (maxRating) {
+      where.rating = { ...where.rating, lte: parseInt(maxRating as string) };
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          business: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+            },
+          },
+          _count: {
+            select: {
+              reactions: true,
+            },
+          },
+        },
+      }),
+      prisma.review.count({ where }),
+    ]);
+
+    const pagination = generatePaginationMeta({ page: pageNum, limit: limitNum }, total);
+
+    return successResponse(res, {
+      reviews,
+      pagination,
+    });
+  } catch (error) {
+    console.error('Error en getAllReviews:', error);
+    return errorResponse(res, 'Error al obtener reseñas', 500);
+  }
+};

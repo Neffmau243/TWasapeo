@@ -18,15 +18,38 @@ const HomePage: React.FC = () => {
     try {
       setLoading(true);
 
-      // Cargar negocios destacados
-      const featured = await businessService.getAllBusinesses({ featured: true, limit: 4 });
-      console.log('✅ Featured response:', featured);
-      setFeaturedBusinesses(featured.data.businesses || []);
+      // Cargar negocios destacados con manejo de errores
+      try {
+        const featured = await businessService.getAllBusinesses({ featured: true, limit: 4 });
+        if (featured.success) {
+          setFeaturedBusinesses(featured.data?.businesses || []);
+        }
+      } catch (err: any) {
+        // Si es rate limit, solo loguear pero no romper el flujo
+        if (err.response?.status === 429 || err.isRateLimit) {
+          console.warn('⚠️ Rate limit al cargar negocios destacados');
+        } else {
+          console.error('Error loading featured businesses:', err);
+        }
+      }
 
-      // Cargar negocios recientes
-      const recent = await businessService.getAllBusinesses({ limit: 8 });
-      console.log('✅ Recent response:', recent);
-      setBusinesses(recent.data.businesses || []);
+      // Pequeño delay para evitar rate limit
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Cargar negocios recientes con manejo de errores
+      try {
+        const recent = await businessService.getAllBusinesses({ limit: 8 });
+        if (recent.success) {
+          setBusinesses(recent.data?.businesses || []);
+        }
+      } catch (err: any) {
+        // Si es rate limit, solo loguear pero no romper el flujo
+        if (err.response?.status === 429 || err.isRateLimit) {
+          console.warn('⚠️ Rate limit al cargar negocios recientes');
+        } else {
+          console.error('Error loading recent businesses:', err);
+        }
+      }
     } catch (error) {
       console.error('Error loading businesses:', error);
     } finally {

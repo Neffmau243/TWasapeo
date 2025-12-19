@@ -36,6 +36,9 @@ router.put('/users/:id/role', adminController.changeUserRole);
 // DELETE /api/admin/users/:id - Eliminar usuario
 router.delete('/users/:id', adminController.deleteUser);
 
+// GET /api/admin/reviews - Listar todas las reseñas (moderación)
+router.get('/reviews', adminController.getAllReviews);
+
 // DELETE /api/admin/reviews/:id - Eliminar reseña inapropiada
 router.delete('/reviews/:id', adminController.deleteReview);
 

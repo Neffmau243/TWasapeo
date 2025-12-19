@@ -10,13 +10,8 @@ export const getAllUsers = async (params?: any) => {
   return response.data;
 };
 
-export const banUser = async (userId: string, reason: string) => {
-  const response = await apiClient.post(`/admin/users/${userId}/ban`, { reason });
-  return response.data;
-};
-
-export const unbanUser = async (userId: string) => {
-  const response = await apiClient.post(`/admin/users/${userId}/unban`);
+export const deleteUser = async (userId: string) => {
+  const response = await apiClient.delete(`/admin/users/${userId}`);
   return response.data;
 };
 
@@ -25,18 +20,33 @@ export const changeUserRole = async (userId: string, role: string) => {
   return response.data;
 };
 
-export const getPendingBusinesses = async () => {
-  const response = await apiClient.get('/admin/businesses/pending');
-  return response.data;
+export const getPendingBusinesses = async (params?: any) => {
+  console.log('🔍 adminService.getPendingBusinesses - params:', params);
+  console.log('🔍 adminService.getPendingBusinesses - URL: /admin/pending');
+  try {
+    const response = await apiClient.get('/admin/pending', { params });
+    console.log('✅ adminService.getPendingBusinesses - Response completa:', response);
+    console.log('✅ adminService.getPendingBusinesses - response.data:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ adminService.getPendingBusinesses - Error:', error);
+    console.error('❌ adminService.getPendingBusinesses - Error response:', error.response);
+    throw error;
+  }
 };
 
 export const approveBusiness = async (businessId: string) => {
-  const response = await apiClient.post(`/admin/businesses/${businessId}/approve`);
+  const response = await apiClient.put(`/admin/approve/${businessId}`);
   return response.data;
 };
 
 export const rejectBusiness = async (businessId: string, reason: string) => {
-  const response = await apiClient.post(`/admin/businesses/${businessId}/reject`, { reason });
+  const response = await apiClient.put(`/admin/reject/${businessId}`, { reason });
+  return response.data;
+};
+
+export const getAllReviews = async (params?: any) => {
+  const response = await apiClient.get('/admin/reviews', { params });
   return response.data;
 };
 
@@ -46,16 +56,16 @@ export const deleteReview = async (reviewId: string) => {
 };
 
 export const createCategory = async (data: any) => {
-  const response = await apiClient.post('/admin/categories', data);
+  const response = await apiClient.post('/categories', data);
   return response.data;
 };
 
 export const updateCategory = async (id: string, data: any) => {
-  const response = await apiClient.put(`/admin/categories/${id}`, data);
+  const response = await apiClient.put(`/categories/${id}`, data);
   return response.data;
 };
 
 export const deleteCategory = async (id: string) => {
-  const response = await apiClient.delete(`/admin/categories/${id}`);
+  const response = await apiClient.delete(`/categories/${id}`);
   return response.data;
 };

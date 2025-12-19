@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import * as adminService from '../../services/adminService';
-import * as businessService from '../../services/businessService';
-import Avatar from '../../components/common/Avatar';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import Modal from '../../components/common/Modal';
 import Pagination from '../../components/common/Pagination';
 import Badge from '../../components/common/Badge';
@@ -37,14 +33,11 @@ interface PaginationMeta {
   totalPages: number;
 }
 
-const BusinessesManagePage: React.FC = () => {
+const PendingBusinessesPage: React.FC = () => {
   const [businesses, setBusinesses] = useState<BusinessWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
-  // Filtros
-  const [statusFilter, setStatusFilter] = useState<string>(''); // '' = todos, 'PENDING', 'APPROVED', etc.
   
   // Paginación
   const [pagination, setPagination] = useState<PaginationMeta>({
@@ -54,96 +47,100 @@ const BusinessesManagePage: React.FC = () => {
     totalPages: 0,
   });
   
-  // Estadísticas
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    inactive: 0,
-  });
-  
-  // Modal de detalles
+  // Modales
+  const [approveModal, setApproveModal] = useState(false);
+  const [rejectModal, setRejectModal] = useState(false);
   const [detailModal, setDetailModal] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithDetails | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
-    console.log('🔄 BusinessesManagePage - useEffect ejecutado, página:', pagination.page, 'status:', statusFilter);
-    loadAllBusinesses();
-    loadStats();
-  }, [pagination.page, statusFilter]);
+    loadPendingBusinesses();
+  }, [pagination.page]);
 
-  useEffect(() => {
-    console.log('📊 BusinessesManagePage - Estado actualizado:');
-    console.log('  - businesses:', businesses.length);
-    console.log('  - loading:', loading);
-    console.log('  - error:', error);
-    console.log('  - pagination:', pagination);
-    console.log('  - statusFilter:', statusFilter);
-  }, [businesses, loading, error, pagination, statusFilter]);
-
-  const loadStats = async () => {
-    try {
-      const response = await adminService.getStats();
-      if (response.success && response.data) {
-        const businessesByStatus = response.data.businessesByStatus || {};
-        setStats({
-          total: response.data.overview?.totalBusinesses || 0,
-          pending: businessesByStatus.PENDING || 0,
-          approved: businessesByStatus.APPROVED || 0,
-          rejected: businessesByStatus.REJECTED || 0,
-          inactive: businessesByStatus.INACTIVE || 0,
-        });
-      }
-    } catch (err) {
-      console.error('Error loading stats:', err);
-    }
-  };
-
-  const loadAllBusinesses = async () => {
+  const loadPendingBusinesses = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const params: any = {
+      const params = {
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
       };
 
-      // Si hay filtro de status, agregarlo. Si no, no enviar status para obtener todos
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-
-      console.log('🔍 BusinessesManagePage - Cargando negocios con params:', params);
-      const response = await businessService.getAllBusinesses(params);
-      console.log('✅ BusinessesManagePage - Response completa:', response);
-      console.log('📊 BusinessesManagePage - Response.success:', response.success);
-      console.log('📊 BusinessesManagePage - Response.data:', response.data);
+      const response = await adminService.getPendingBusinesses(params);
       
       if (response.success) {
-        const businessesData = response.data?.businesses || [];
-        const paginationData = response.data?.pagination || pagination;
-        console.log('📦 BusinessesManagePage - Negocios encontrados:', businessesData.length);
-        console.log('📦 BusinessesManagePage - Negocios:', businessesData);
-        console.log('📄 BusinessesManagePage - Paginación:', paginationData);
-        setBusinesses(businessesData);
-        setPagination(paginationData);
+        setBusinesses(response.data?.businesses || []);
+        setPagination(response.data?.pagination || pagination);
       } else {
-        console.warn('⚠️ BusinessesManagePage - Response.success es false:', response);
-        setError(response.message || 'Error al cargar los negocios');
+        setError(response.message || 'Error al cargar los negocios pendientes');
       }
     } catch (err: any) {
-      console.error('❌ BusinessesManagePage - Error loading businesses:', err);
-      console.error('❌ BusinessesManagePage - Error response:', err.response);
-      console.error('❌ BusinessesManagePage - Error data:', err.response?.data);
+      console.error('Error loading businesses:', err);
       if (err.response?.status !== 429) {
-        setError(err.response?.data?.message || 'Error al cargar los negocios');
+        setError(err.response?.data?.message || 'Error al cargar los negocios pendientes');
       }
     } finally {
       setLoading(false);
-      console.log('🏁 BusinessesManagePage - loadAllBusinesses finalizado, loading:', false);
     }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedBusiness) return;
+
+    try {
+      setError(null);
+      const response = await adminService.approveBusiness(selectedBusiness.id);
+      
+      if (response.success) {
+        setSuccess(`Negocio "${selectedBusiness.name}" aprobado exitosamente`);
+        setApproveModal(false);
+        setSelectedBusiness(null);
+        loadPendingBusinesses();
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error approving business:', err);
+      setError(err.response?.data?.message || 'Error al aprobar el negocio');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedBusiness) return;
+
+    if (!rejectReason.trim()) {
+      setError('Por favor proporciona una razón para el rechazo');
+      return;
+    }
+
+    try {
+      setError(null);
+      const response = await adminService.rejectBusiness(selectedBusiness.id, rejectReason);
+      
+      if (response.success) {
+        setSuccess(`Negocio "${selectedBusiness.name}" rechazado`);
+        setRejectModal(false);
+        setSelectedBusiness(null);
+        setRejectReason('');
+        loadPendingBusinesses();
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error rejecting business:', err);
+      setError(err.response?.data?.message || 'Error al rechazar el negocio');
+    }
+  };
+
+  const openApproveModal = (business: BusinessWithDetails) => {
+    setSelectedBusiness(business);
+    setApproveModal(true);
+  };
+
+  const openRejectModal = (business: BusinessWithDetails) => {
+    setSelectedBusiness(business);
+    setRejectReason('');
+    setRejectModal(true);
   };
 
   const openDetailModal = (business: BusinessWithDetails) => {
@@ -166,12 +163,8 @@ const BusinessesManagePage: React.FC = () => {
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Gestión de Negocios</h1>
-              <p className="text-gray-600">Visualiza y gestiona todos los negocios de la plataforma</p>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Negocios Pendientes</h1>
+          <p className="text-gray-600">Revisa y aprueba los negocios que están esperando aprobación</p>
         </div>
 
         {/* Mensajes */}
@@ -187,62 +180,18 @@ const BusinessesManagePage: React.FC = () => {
         )}
 
         {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-2xl font-bold text-gray-800 mb-2">{stats.total}</div>
-            <div className="text-gray-600">Total</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-2xl font-bold text-yellow-600 mb-2">{stats.pending}</div>
-            <div className="text-gray-600">Pendientes</div>
+            <div className="text-2xl font-bold text-yellow-600 mb-2">{pagination.total}</div>
+            <div className="text-gray-600">Negocios pendientes</div>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-2xl font-bold text-green-600 mb-2">{stats.approved}</div>
-            <div className="text-gray-600">Aprobados</div>
+            <div className="text-2xl font-bold text-blue-600 mb-2">{businesses.length}</div>
+            <div className="text-gray-600">En esta página</div>
           </div>
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-2xl font-bold text-red-600 mb-2">{stats.rejected}</div>
-            <div className="text-gray-600">Rechazados</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-2xl font-bold text-gray-600 mb-2">{stats.inactive}</div>
-            <div className="text-gray-600">Inactivos</div>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Filtros</h2>
-            <Button
-              onClick={() => {
-                setStatusFilter('');
-                setPagination({ ...pagination, page: 1 });
-              }}
-              variant="secondary"
-              className="text-xs"
-            >
-              Limpiar filtros
-            </Button>
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Estado del Negocio
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPagination({ ...pagination, page: 1 });
-              }}
-              className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Todos los negocios</option>
-              <option value="PENDING">Pendientes</option>
-              <option value="APPROVED">Aprobados</option>
-              <option value="REJECTED">Rechazados</option>
-              <option value="INACTIVE">Inactivos</option>
-            </select>
+            <div className="text-2xl font-bold text-gray-600 mb-2">{pagination.totalPages}</div>
+            <div className="text-gray-600">Páginas totales</div>
           </div>
         </div>
 
@@ -352,14 +301,20 @@ const BusinessesManagePage: React.FC = () => {
                             >
                               Ver detalles
                             </Button>
-                            {business.status === 'PENDING' && (
-                              <Link
-                                to="/admin/businesses/pending"
-                                className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
-                              >
-                                Ir a pendientes →
-                              </Link>
-                            )}
+                            <Button
+                              onClick={() => openApproveModal(business)}
+                              variant="primary"
+                              className="text-xs px-3 py-1"
+                            >
+                              ✓ Aprobar
+                            </Button>
+                            <Button
+                              onClick={() => openRejectModal(business)}
+                              variant="danger"
+                              className="text-xs px-3 py-1"
+                            >
+                              ✗ Rechazar
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -416,7 +371,7 @@ const BusinessesManagePage: React.FC = () => {
                 <div>
                   <span className="text-sm font-medium text-gray-500">Estado:</span>
                   <p>
-                    <Badge variant={selectedBusiness.status === 'PENDING' ? 'warning' : 'info'}>
+                    <Badge variant="warning">
                       {selectedBusiness.status}
                     </Badge>
                   </p>
@@ -468,16 +423,139 @@ const BusinessesManagePage: React.FC = () => {
                 </div>
               )}
 
-              {selectedBusiness.status === 'PENDING' && (
-                <div className="pt-4 border-t">
-                  <Link
-                    to="/admin/businesses/pending"
-                    className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Ir a la página de pendientes para aprobar/rechazar →
-                  </Link>
-                </div>
-              )}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button
+                  onClick={() => {
+                    setDetailModal(false);
+                    openApproveModal(selectedBusiness);
+                  }}
+                  variant="primary"
+                  className="flex-1"
+                >
+                  Aprobar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setDetailModal(false);
+                    openRejectModal(selectedBusiness);
+                  }}
+                  variant="danger"
+                  className="flex-1"
+                >
+                  Rechazar
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Modal aprobar */}
+        <Modal
+          isOpen={approveModal}
+          onClose={() => {
+            setApproveModal(false);
+            setSelectedBusiness(null);
+          }}
+          title="Aprobar Negocio"
+        >
+          {selectedBusiness && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800 font-medium mb-2">
+                  ✓ Confirmar aprobación
+                </p>
+                <p className="text-sm text-green-700">
+                  ¿Estás seguro de que deseas aprobar el negocio{' '}
+                  <span className="font-medium">"{selectedBusiness.name}"</span>?
+                </p>
+                <p className="text-sm text-green-700 mt-2">
+                  El dueño recibirá una notificación por email y el negocio será visible públicamente.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleApprove}
+                  variant="primary"
+                  className="flex-1"
+                >
+                  Sí, aprobar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setApproveModal(false);
+                    setSelectedBusiness(null);
+                  }}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Modal rechazar */}
+        <Modal
+          isOpen={rejectModal}
+          onClose={() => {
+            setRejectModal(false);
+            setSelectedBusiness(null);
+            setRejectReason('');
+          }}
+          title="Rechazar Negocio"
+        >
+          {selectedBusiness && (
+            <div className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  ⚠️ Confirmar rechazo
+                </p>
+                <p className="text-sm text-red-700">
+                  ¿Estás seguro de que deseas rechazar el negocio{' '}
+                  <span className="font-medium">"{selectedBusiness.name}"</span>?
+                </p>
+                <p className="text-sm text-red-700 mt-2">
+                  El dueño recibirá una notificación por email con la razón del rechazo.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Razón del rechazo <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Explica por qué se rechaza el negocio..."
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Esta razón será enviada al dueño del negocio.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleReject}
+                  variant="danger"
+                  className="flex-1"
+                  disabled={!rejectReason.trim()}
+                >
+                  Rechazar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setRejectModal(false);
+                    setSelectedBusiness(null);
+                    setRejectReason('');
+                  }}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
             </div>
           )}
         </Modal>
@@ -486,4 +564,5 @@ const BusinessesManagePage: React.FC = () => {
   );
 };
 
-export default BusinessesManagePage;
+export default PendingBusinessesPage;
+

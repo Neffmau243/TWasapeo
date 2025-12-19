@@ -10,6 +10,10 @@ import {
   getMyBusinesses,
   getBusinessStats,
   getOwnerStats,
+  getMyReviews,
+  respondToReview,
+  updateReviewResponse,
+  deleteReviewResponse,
 } from '../controllers/ownerController';
 
 const router = Router();
@@ -21,5 +25,11 @@ router.use(authorizeRoles('OWNER', 'ADMIN'));
 router.get('/stats', getOwnerStats);
 router.get('/businesses', getMyBusinesses);
 router.get('/businesses/:businessId/stats', getBusinessStats);
+
+// Reseñas
+router.get('/reviews', getMyReviews);
+router.post('/reviews/:reviewId/respond', respondToReview);
+router.put('/reviews/:reviewId/respond', updateReviewResponse);
+router.delete('/reviews/:reviewId/respond', deleteReviewResponse);
 
 export default router;

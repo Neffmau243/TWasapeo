@@ -47,15 +47,19 @@ export interface CreateBusinessRequest {
   description: string;
   categoryId: string;
   address: string;
+  city: string;
+  state: string;
+  zipCode?: string;
   latitude: number;
   longitude: number;
-  phone?: string;
+  phone: string;
   email?: string;
   website?: string;
   whatsapp?: string;
   facebook?: string;
   instagram?: string;
-  openingHours?: OpeningHours;
+  schedule?: OpeningHours | Record<string, any>;
+  openingHours?: OpeningHours; // Deprecated, usar schedule
 }
 
 export interface UpdateBusinessRequest extends Partial<CreateBusinessRequest> {

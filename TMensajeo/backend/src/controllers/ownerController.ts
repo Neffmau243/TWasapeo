@@ -201,3 +201,316 @@ export const getOwnerStats = async (req: Request, res: Response) => {
     return errorResponse(res, 'Error al obtener estadísticas generales', 500);
   }
 };
+
+/**
+ * @desc    Obtener todas las reseñas de mis negocios
+ * @route   GET /api/owner/reviews
+ * @access  Private (Owner)
+ */
+export const getMyReviews = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { page = '1', limit = '20', businessId, minRating, maxRating } = req.query;
+
+    if (!userId) {
+      console.log('⚠️ getMyReviews: Usuario no autenticado');
+      return errorResponse(res, 'Usuario no autenticado', 401);
+    }
+
+    console.log(`📊 getMyReviews - User: ${userId}, Page: ${page}, BusinessId: ${businessId || 'All'}`);
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Obtener IDs de negocios del owner
+    const ownerBusinesses = await prisma.business.findMany({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+
+    const businessIds = ownerBusinesses.map((b) => b.id);
+    console.log(`🏢 Negocios del usuario: ${businessIds.length} encontrados`);
+
+    if (businessIds.length === 0) {
+      console.log('⚠️ El usuario no tiene negocios, retornando array vacío de reseñas');
+      return successResponse(res, {
+        reviews: [],
+        pagination: generatePaginationMeta({ page: pageNum, limit: limitNum }, 0),
+      });
+    }
+
+    const where: any = {
+      businessId: { in: businessIds },
+    };
+
+    if (businessId) {
+      where.businessId = businessId as string;
+    }
+
+    if (minRating) {
+      where.rating = { ...where.rating, gte: parseInt(minRating as string) };
+    }
+
+    if (maxRating) {
+      where.rating = { ...where.rating, lte: parseInt(maxRating as string) };
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          business: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+            },
+          },
+          _count: {
+            select: {
+              reactions: true,
+            },
+          },
+        },
+      }),
+      prisma.review.count({ where }),
+    ]);
+
+    const pagination = generatePaginationMeta({ page: pageNum, limit: limitNum }, total);
+
+    return successResponse(res, {
+      reviews,
+      pagination,
+    });
+  } catch (error) {
+    console.error('Error en getMyReviews:', error);
+    return errorResponse(res, 'Error al obtener reseñas', 500);
+  }
+};
+
+/**
+ * @desc    Responder a una reseña
+ * @route   POST /api/owner/reviews/:reviewId/respond
+ * @access  Private (Owner)
+ */
+export const respondToReview = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { reviewId } = req.params;
+    const { response } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 'Usuario no autenticado', 401);
+    }
+
+    if (!response || response.trim().length === 0) {
+      return errorResponse(res, 'La respuesta no puede estar vacía', 400);
+    }
+
+    // Buscar la reseña
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        business: {
+          select: {
+            id: true,
+            ownerId: true,
+          },
+        },
+      },
+    });
+
+    if (!review) {
+      return errorResponse(res, 'Reseña no encontrada', 404);
+    }
+
+    // Verificar que el negocio pertenece al owner
+    if (review.business.ownerId !== userId) {
+      return errorResponse(res, 'No tienes permisos para responder a esta reseña', 403);
+    }
+
+    // Actualizar la reseña con la respuesta
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        ownerReply: response.trim(),
+        ownerReplyDate: new Date(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    return successResponse(res, updatedReview, 'Respuesta agregada exitosamente');
+  } catch (error) {
+    console.error('Error en respondToReview:', error);
+    return errorResponse(res, 'Error al responder a la reseña', 500);
+  }
+};
+
+/**
+ * @desc    Actualizar respuesta a una reseña
+ * @route   PUT /api/owner/reviews/:reviewId/respond
+ * @access  Private (Owner)
+ */
+export const updateReviewResponse = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { reviewId } = req.params;
+    const { response } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 'Usuario no autenticado', 401);
+    }
+
+    if (!response || response.trim().length === 0) {
+      return errorResponse(res, 'La respuesta no puede estar vacía', 400);
+    }
+
+    // Buscar la reseña
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        business: {
+          select: {
+            id: true,
+            ownerId: true,
+          },
+        },
+      },
+    });
+
+    if (!review) {
+      return errorResponse(res, 'Reseña no encontrada', 404);
+    }
+
+    // Verificar que el negocio pertenece al owner
+    if (review.business.ownerId !== userId) {
+      return errorResponse(res, 'No tienes permisos para responder a esta reseña', 403);
+    }
+
+    // Actualizar la respuesta
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        ownerReply: response.trim(),
+        ownerReplyDate: new Date(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    return successResponse(res, updatedReview, 'Respuesta actualizada exitosamente');
+  } catch (error) {
+    console.error('Error en updateReviewResponse:', error);
+    return errorResponse(res, 'Error al actualizar la respuesta', 500);
+  }
+};
+
+/**
+ * @desc    Eliminar respuesta a una reseña
+ * @route   DELETE /api/owner/reviews/:reviewId/respond
+ * @access  Private (Owner)
+ */
+export const deleteReviewResponse = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { reviewId } = req.params;
+
+    if (!userId) {
+      return errorResponse(res, 'Usuario no autenticado', 401);
+    }
+
+    // Buscar la reseña
+    const review = await prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        business: {
+          select: {
+            id: true,
+            ownerId: true,
+          },
+        },
+      },
+    });
+
+    if (!review) {
+      return errorResponse(res, 'Reseña no encontrada', 404);
+    }
+
+    // Verificar que el negocio pertenece al owner
+    if (review.business.ownerId !== userId) {
+      return errorResponse(res, 'No tienes permisos para eliminar esta respuesta', 403);
+    }
+
+    // Eliminar la respuesta
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        ownerReply: null,
+        ownerReplyDate: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    return successResponse(res, updatedReview, 'Respuesta eliminada exitosamente');
+  } catch (error) {
+    console.error('Error en deleteReviewResponse:', error);
+    return errorResponse(res, 'Error al eliminar la respuesta', 500);
+  }
+};

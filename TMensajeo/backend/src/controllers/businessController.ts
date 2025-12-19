@@ -23,7 +23,7 @@ export const getAllBusinesses = async (req: Request, res: Response) => {
       limit = '10',
       categoryId,
       city,
-      status = 'APPROVED',
+      status,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -34,9 +34,12 @@ export const getAllBusinesses = async (req: Request, res: Response) => {
     const skip = (pageNum - 1) * limitNum;
 
     // Construir filtros
-    const where: any = {
-      status: status as string,
-    };
+    const where: any = {};
+    
+    // Solo filtrar por status si se proporciona (para admin puede ver todos)
+    if (status) {
+      where.status = status as string;
+    }
 
     if (categoryId) {
       where.categoryId = categoryId as string;

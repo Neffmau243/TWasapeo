@@ -1,4 +1,4 @@
-import React, { createContext, useState, ReactNode } from 'react';
+import React, { createContext, useState, ReactNode, useContext } from 'react';
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
@@ -70,4 +70,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       {children}
     </NotificationContext.Provider>
   );
+};
+
+export const useNotification = (): NotificationContextType => {
+  const context = useContext(NotificationContext);
+  if (context === undefined) {
+    throw new Error('useNotification must be used within a NotificationProvider');
+  }
+  return context;
 };

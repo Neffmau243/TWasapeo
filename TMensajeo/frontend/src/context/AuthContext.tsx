@@ -6,6 +6,10 @@ interface User {
   name: string;
   email: string;
   role: string;
+  phone?: string;
+  avatar?: string;
+  isVerified?: boolean;
+  banned?: boolean;
 }
 
 interface AuthContextType {
@@ -28,39 +32,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      console.log('🔍 AuthContext useEffect - token:', token ? 'exists' : 'null');
-      console.log('🧪 Token preview:', token?.substring(0, 50) + '...');
-
       if (token) {
         try {
-          // Fetch user profile from backend
-          console.log('📡 Fetching user profile...');
           const response = await fetch('http://localhost:3000/api/user/profile', {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
 
-          console.log('📥 Response status:', response.status);
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.warn('⚠️ Server error:', errorData);
+          if (response.status === 429) {
+            // Rate limit - no hacer nada, solo esperar
+            console.warn('⚠️ Rate limit alcanzado, esperando...');
+            setIsLoading(false);
+            return;
           }
 
           if (response.ok) {
             const data = await response.json();
-            console.log('✅ User profile loaded:', data);
-            setUser(data.data);
-          } else {
-            // Token inválido, limpiar
-            console.warn('⚠️ Token inválido o endpoint no encontrado. Status:', response.status);
+            if (data.success && data.data) {
+              setUser(data.data);
+            }
+          } else if (response.status === 401 || response.status === 403) {
+            // Token inválido o expirado, limpiar
             setToken(null);
             setUser(null);
             localStorage.removeItem('token');
           }
-        } catch (error) {
-          console.error('❌ Error fetching user profile:', error);
+        } catch (error: any) {
+          // Si es un error de JSON parsing (como con 429), ignorarlo
+          if (error.message && error.message.includes('JSON')) {
+            console.warn('⚠️ Error de parsing, posible rate limit');
+          } else {
+            console.error('❌ Error fetching user profile:', error);
+          }
         }
       }
       setIsLoading(false);

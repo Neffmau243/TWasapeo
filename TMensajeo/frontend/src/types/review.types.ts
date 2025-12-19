@@ -1,20 +1,35 @@
 export interface Review {
   id: string;
   rating: number;
-  title: string;
-  content: string;
-  images: string[];
+  title?: string;
+  content?: string;
+  comment?: string; // Backend usa 'comment', frontend puede usar 'content'
+  images?: string[];
   userId: string;
   businessId: string;
-  ownerResponse?: string;
-  ownerResponseDate?: string;
-  isVerified: boolean;
+  ownerResponse?: string; // También puede ser ownerReply
+  ownerReply?: string; // Campo del backend
+  ownerResponseDate?: string; // También puede ser ownerReplyDate
+  ownerReplyDate?: string; // Campo del backend
+  isVerified?: boolean;
+  isEdited?: boolean;
+  helpfulCount?: number;
   createdAt: string;
   updatedAt: string;
   user?: {
     id: string;
     name: string;
+    email?: string;
     avatar?: string;
+  };
+  business?: {
+    id: string;
+    name: string;
+    slug: string;
+    logo?: string;
+  };
+  _count?: {
+    reactions: number;
   };
 }
 
